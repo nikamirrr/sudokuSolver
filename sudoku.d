@@ -1,1 +1,0 @@
-sudoku.o: sudoku.cpp
