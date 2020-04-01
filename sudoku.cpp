@@ -103,13 +103,11 @@ unsigned short int  bitCount16(unsigned short int value) {
 bool findTheBestEmptyCell(vector<unsigned short int>& board, stack<unsigned short int>& moves, unordered_set<unsigned short int> &filled, unordered_set<unsigned short int> &empty) {
     // set all not-filled cells flags to all options
     for (unsigned short cell: empty) {
-        auto &value = board[cell];
-        value |= ALLOPTIONS_MASK;
+        board[cell] |= ALLOPTIONS_MASK;
     }
     // for every filled cell, update non-filled related cells to remove the options already taken
     for (unsigned short cell: filled) {
-        auto value = board[cell];
-        updateRelCells(board, cell, value);
+        updateRelCells(board, cell, board[cell]);
     }
     
     // scan the board and find the cell with least available options 
