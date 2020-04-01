@@ -1,6 +1,6 @@
 
 
 make
-"./sudoku < <input file>"
+./sudoku \< \<input file\>
 
 Please, see the input and output folders for examples.
