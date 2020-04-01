@@ -65,14 +65,17 @@ vector<unsigned short int> cellsByBlock(unsigned short int b) {
 }
 
 // A function to calculate all related cells (same row, column, or block) based on the cell index 0-80
-unordered_set<unsigned short int> relatedCells(unsigned short int cell) {
-    unordered_set<unsigned short int> result;
-    auto d1 = cellsByCol(colByCell(cell));
-    auto d2 = cellsByRow(rowByCell(cell));
-    auto d3 = cellsByBlock(blockByCell(cell));
-    result.insert(d1.cbegin(), d1.cend());
-    result.insert(d2.cbegin(), d2.cend());
-    result.insert(d3.cbegin(), d3.cend());
+const unordered_set<unsigned short int> & relatedCells(unsigned short int cell) {
+    static vector<unordered_set<unsigned short int>> cache(81, unordered_set<unsigned short int>());
+    unordered_set<unsigned short int> &result=cache[cell];
+    if (result.size() == 0) {
+       auto d1 = cellsByCol(colByCell(cell));
+       auto d2 = cellsByRow(rowByCell(cell));
+       auto d3 = cellsByBlock(blockByCell(cell));
+       result.insert(d1.cbegin(), d1.cend());
+       result.insert(d2.cbegin(), d2.cend());
+       result.insert(d3.cbegin(), d3.cend());
+    }
     return result;
 }
 
@@ -97,37 +100,33 @@ unsigned short int  bitCount16(unsigned short int value) {
 
 
 // a function to find a next not-filled cell with the least number of options
-bool findTheBestEmptyCell(vector<unsigned short int>& board, stack<unsigned short int>& moves) {
+bool findTheBestEmptyCell(vector<unsigned short int>& board, stack<unsigned short int>& moves, unordered_set<unsigned short int> &filled, unordered_set<unsigned short int> &empty) {
     // set all not-filled cells flags to all options
-    for (unsigned short cell = 0; cell < 81; cell++) {
+    for (unsigned short cell: empty) {
         auto &value = board[cell];
-        if ((value & NOTFILLED_MASK) == NOTFILLED_MASK) {
-            value |= ALLOPTIONS_MASK;
-        }
+        value |= ALLOPTIONS_MASK;
     }
     // for every filled cell, update non-filled related cells to remove the options already taken
-    for (unsigned short cell = 0; cell < 81; cell++) {
+    for (unsigned short cell: filled) {
         auto value = board[cell];
-        if ((value & NOTFILLED_MASK) != NOTFILLED_MASK) {
-            updateRelCells(board, cell, value);
-        }
+        updateRelCells(board, cell, value);
     }
     
     // scan the board and find the cell with least available options 
     unsigned short int bestCell = 81;
     unsigned short int bestCellOptions = 10;
-    for (unsigned short int cell = 0; cell < 81; cell++) {
+    for (unsigned short int cell: empty) {
         auto value = board[cell];
-        if ((value & NOTFILLED_MASK) == NOTFILLED_MASK) {
-            auto newOptions = bitCount16(value >> 5);
-            if (newOptions < bestCellOptions) {
-                bestCell = cell;
-                bestCellOptions = newOptions;
-                if (bestCellOptions == 1) {
-                    board[bestCell] &= ~NOTFILLED_MASK;
-                    moves.push(bestCell);
-                    return true;
-                }
+        auto newOptions = bitCount16(value >> 5);
+        if (newOptions < bestCellOptions) {
+            bestCell = cell;
+            bestCellOptions = newOptions;
+            if (bestCellOptions == 1) {
+                board[bestCell] &= ~NOTFILLED_MASK;
+                empty.erase(bestCell);
+                filled.insert(bestCell);
+                moves.push(bestCell);
+                return true;
             }
         }
     }
@@ -136,6 +135,8 @@ bool findTheBestEmptyCell(vector<unsigned short int>& board, stack<unsigned shor
     }
     // if found, make the cell as temporarily filled, and push to the moves stack
     board[bestCell] &= ~NOTFILLED_MASK;
+    empty.erase(bestCell);
+    filled.insert(bestCell);
     moves.push(bestCell);
     return true;
     
@@ -163,9 +164,9 @@ void outputSolution(const vector<unsigned short int>& board) {
 }
 
 // a back-tracking solver for sudoku
-void solveSudoku(vector<unsigned short int>& board) {
+void solveSudoku(vector<unsigned short int>& board, unordered_set<unsigned short int> &filled, unordered_set<unsigned short int> &empty) {
     stack<unsigned short int> moves; // moves stack
-    if (findTheBestEmptyCell(board, moves)) { // find the cell with fewest options
+    if (findTheBestEmptyCell(board, moves, filled, empty)) { // find the cell with fewest options
         while (true) {
             // read the cell on the top of the stack, access is value
             auto nextCell = moves.top();
@@ -175,6 +176,8 @@ void solveSudoku(vector<unsigned short int>& board) {
             if (options == 0) {
                 // if none-available, it is a dead-end, mark the cell as available and remove the cell from the stack
                 value |= NOTFILLED_MASK;
+                empty.insert(nextCell);
+                filled.erase(nextCell);
                 moves.pop();
                 // if the stack is empty, then no solution for Sudoku
                 if (moves.empty()) {
@@ -196,7 +199,7 @@ void solveSudoku(vector<unsigned short int>& board) {
             value |= choice; //  set them to the new choice,
      
             // find the next move and put to the stack 
-            if (!findTheBestEmptyCell(board, moves)) {
+            if (!findTheBestEmptyCell(board, moves, filled, empty)) {
                 break;
             }
             
@@ -209,22 +212,26 @@ void solveSudoku(vector<unsigned short int>& board) {
 
 int main() {
     vector<unsigned short int> board(81, 0b11111111110000); // 0-80 cells for the board, mark everything empty  and available
+    unordered_set<unsigned short int> filled, empty;
     for (unsigned short int i = 0; i < 81; i++) { // read 81 character
         char c;
         if (cin >> c) {
             if (c != '.') { // if not ".", mark as the filled and set the value
                 if (c >= '1' && c <='9') {
                     board[i] = c - '0';
+                    filled.insert(i);
                 } else {
                     return 2;
                 }
+            } else {
+               empty.insert(i);
             }
         } else {
             return 1;
         }
     }
     // solve sudoku and output solution
-    solveSudoku(board);
+    solveSudoku(board, filled, empty);
     
     return 0;
 }
