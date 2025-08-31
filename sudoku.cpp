@@ -107,7 +107,7 @@ bool findTheBestEmptyCell(vector<unsigned short int>& board, stack<unsigned shor
     }
     // for every filled cell, update non-filled related cells to remove the options already taken
     for (unsigned short cell: filled) {
-        updateRelCells(board, cell, board[cell]);
+        updateRelCells(board, cell, board[cell] & CONTENT_MASK);
     }
     
     // scan the board and find the cell with least available options 
